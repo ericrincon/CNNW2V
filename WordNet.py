@@ -60,33 +60,24 @@ class WordNet:
             filter_sizes = [20, 30, 40, 50]
         self.model = self.create_model(vector_size=doc_vector_size, filter_sizes=filter_sizes, dropout_p=dropout_p,
                                        max_tokens=n_tokens, n_feature_maps=n_feature_maps, n_classes=n_classes,
-                                       embedding=embedding, nn_layer_sizes=hidden_layer_sizes, convolution=convolution,
+                                       embedding=embedding, nn_layer_sizes=hidden_layer_sizes,
                                        activation=activation_func)
 
     def create_model(self, vector_size, filter_sizes, dropout_p, max_tokens,
-                     n_feature_maps, n_classes, activation, embedding, nn_layer_sizes, convolution):
+                     n_feature_maps, n_classes, activation, embedding, nn_layer_sizes):
         model = Graph()
 
-        if convolution == 2:
-            model.add_input(name='data', input_shape=(1, max_tokens, vector_size))
-        elif convolution == 1:
-            model.add_input(name='data', input_shape=(1, vector_size))
+        model.add_input(name='data', input_shape=(1, max_tokens, vector_size))
 
         for filter_size in filter_sizes:
             node = containers.Sequential()
 
-            if convolution == 2:
-                node.add(Convolution2D(n_feature_maps, filter_size, vector_size, input_shape=(1, max_tokens,
+            node.add(Convolution2D(n_feature_maps, filter_size, vector_size, input_shape=(1, max_tokens,
                                                                                                   vector_size)))
-            elif convolution == 1:
-                node.add(Convolution1D(n_feature_maps, filter_size, input_dim=vector_size))
 
             node.add(Activation(activation))
 
-            if convolution == 2:
-                node.add(MaxPooling2D(pool_size=(max_tokens - filter_size + 1, 1)))
-            elif convolution == 1:
-                node.add(MaxPooling1D(pool_length=vector_size - filter_size + 1))
+            node.add(MaxPooling2D(pool_size=(max_tokens - filter_size + 1, 1)))
 
             node.add(Flatten())
             model.add_node(node, name='filter_unit_' + str(filter_size), input='data')
@@ -97,11 +88,7 @@ class WordNet:
 
         for i, layer_size in enumerate(nn_layer_sizes):
             if i == 0:
-                if convolution == 2:
-                    fully_connected_nn.add(Dense(layer_size, input_dim=n_feature_maps * len(filter_sizes)))
-
-                elif convolution == 1:
-                    fully_connected_nn.add(Dense(layer_size, input_dim=n_feature_maps * len(filter_sizes)))
+                fully_connected_nn.add(Dense(layer_size, input_dim=n_feature_maps * len(filter_sizes)))
             else:
                 fully_connected_nn.add(Dense(layer_size))
             fully_connected_nn.add(Activation(activation))
@@ -172,3 +159,16 @@ class WordNet:
 
         predicted_classes = numpy.argmax(predictions['nn_output'], axis=1)
         return predicted_classes
+    def get_frequent_words(self, n, x):
+        words = {}
+        x = x.lower()
+        x = x.split()
+
+        for word in x:
+            i = 0
+
+            if word in words:
+                i = words[word]
+                i += 1
+            words.update({word: i})
+
